@@ -13,8 +13,37 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 cmake_policy(SET CMP0063 NEW)
 
+# Hunter
+include(cmake/Hunter/HunterGate.cmake)
+HunterGate(
+    URL "https://github.com/ruslo/hunter/archive/v0.23.131.tar.gz"
+    SHA1 "0512ea6392065c8ece808296fddd7d8664d30920"
+)
+
 # Project
 project(onnx C CXX)
+
+if(HUNTER_ENABLED)
+  if(CMAKE_CROSSCOMPILING)
+    include(hunter_experimental_add_host_project)
+    hunter_experimental_add_host_project(cmake/host)
+
+    add_executable(protobuf::protoc IMPORTED)
+    set_property(TARGET protobuf::protoc APPEND PROPERTY IMPORTED_CONFIGURATIONS RELEASE)
+    set_target_properties(protobuf::protoc PROPERTIES IMPORTED_LOCATION_RELEASE "${HUNTER_HOST_ROOT}/bin/protoc")
+    message(STATUS "Using imported protoc from host: ${HUNTER_HOST_ROOT}/bin/protoc")
+  endif(CMAKE_CROSSCOMPILING)
+
+  hunter_add_package(Protobuf)
+  find_package(Protobuf CONFIG REQUIRED)
+  # User chooses in Hunter config instead with protobuf_BUILD_LIBPROTOBUF
+  if (TARGET protobuf::libprotobuf)
+    set(ONNX_USE_LITE_PROTO OFF)
+  elseif(TARGET protobuf::libprotobuf-lite)
+    set(ONNX_USE_LITE_PROTO ON)
+  endif()
+endif()
+
 option(ONNX_BUILD_BENCHMARKS "Build ONNX micro-benchmarks" OFF)
 
 option(BUILD_ONNX_PYTHON "Build Python binaries" OFF)
@@ -353,16 +382,22 @@ if(BUILD_ONNX_PYTHON)
                              ${PYTHON_INCLUDE_DIR})
 
   # pybind11 is a header only lib
-  find_package(pybind11 2.2)
-  if(pybind11_FOUND)
-    target_include_directories(onnx_cpp2py_export PUBLIC
-      ${pybind11_INCLUDE_DIRS})
+  if (HUNTER_ENABLED)
+    hunter_add_package(pybind11)
+    find_package(pybind11 CONFIG REQUIRED)
+    target_link_libraries(onnx_cpp2py_export PUBLIC pybind11::pybind11)
   else()
-    if(EXISTS ${ONNX_ROOT}/third_party/pybind11/include/pybind11/pybind11.h)
+    find_package(pybind11 2.2)
+    if(pybind11_FOUND)
       target_include_directories(onnx_cpp2py_export PUBLIC
         ${ONNX_ROOT}/third_party/pybind11/include)
     else()
-      message(FATAL_ERROR "cannot find pybind")
+      if(EXISTS ${ONNX_ROOT}/third_party/pybind11/include/pybind11/pybind11.h)
+        target_include_directories(onnx_cpp2py_export PUBLIC
+          ${ONNX_ROOT}/third_party/pybind11/include)
+      else()
+        message(FATAL_ERROR "cannot find pybind")
+      endif()
     endif()
   endif()
 
@@ -568,7 +603,7 @@ install(FILES
   ${PROJECT_BINARY_DIR}/ONNXConfig.cmake
   DESTINATION share/cmake/ONNX
   COMPONENT dev)
-install(EXPORT ONNXTargets DESTINATION share/cmake/ONNX)
+install(EXPORT ONNXTargets NAMESPACE "${PROJECT_NAME}::" DESTINATION share/cmake/ONNX)
 install(TARGETS
   onnx onnx_proto
   onnxifi onnxifi_dummy onnxifi_loader

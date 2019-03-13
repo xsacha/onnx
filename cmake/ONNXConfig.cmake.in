@@ -9,6 +9,13 @@ set(ONNX_VERSION "@ONNX_VERSION@")
 # import targets
 include ("${CMAKE_CURRENT_LIST_DIR}/ONNXTargets.cmake")
 
+if (@HUNTER_ENABLED@)
+  find_package(Protobuf CONFIG REQUIRED)
+  if (@BUILD_ONNX_PYTHON@)
+    find_package(pybind11 CONFIG REQUIRED)
+  endif()
+endif()
+
 # include directory.
 #
 # Newer versions of CMake set the INTERFACE_INCLUDE_DIRECTORIES property
