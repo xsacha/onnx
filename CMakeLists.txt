@@ -13,6 +13,13 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 cmake_policy(SET CMP0063 NEW)
 
+# Hunter
+include(cmake/Hunter/HunterGate.cmake)
+HunterGate(
+    URL "https://github.com/ruslo/hunter/archive/v0.23.131.tar.gz"
+    SHA1 "0512ea6392065c8ece808296fddd7d8664d30920"
+)
+
 # Project
 project(onnx C CXX)
 option(ONNX_BUILD_BENCHMARKS "Build ONNX micro-benchmarks" OFF)
